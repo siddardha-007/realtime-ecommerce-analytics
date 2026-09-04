@@ -1,0 +1,33 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE settings
+.vscode/
+.idea/
+
+# Environment variables / secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Spark / Hadoop local files
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Logs
+*.log
+
+# PySpark checkpoints
+checkpoints/
+checkpoint/
+
+# Jupyter
+.ipynb_checkpoints/
