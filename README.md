@@ -16,7 +16,7 @@ Install:
 ## 1. Clone the Repository
 
 ```powershell
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/siddardha-007/realtime-ecommerce-analytics
 cd realtime-ecommerce-analytics
 ```
 
