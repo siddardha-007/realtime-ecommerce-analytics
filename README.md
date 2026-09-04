@@ -108,6 +108,14 @@ docker exec ecommerce-kafka /opt/kafka/bin/kafka-topics.sh `
   --bootstrap-server localhost:9092
 ```
 
+```markdown
+### Start Spark
+
+After creating the Kafka topic, re-run only the Spark container:
+
+```bash
+docker compose up -d spark
+
 ---
 
 ## 5. Start Spark Streaming
