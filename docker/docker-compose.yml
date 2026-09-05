@@ -46,6 +46,7 @@ services:
       - "7077:7077"
     volumes:
       - ../spark:/opt/spark-apps
+      - ../checkpoints:/opt/spark-checkpoints
     command: >
       /opt/spark/bin/spark-submit
       --master local[*]
