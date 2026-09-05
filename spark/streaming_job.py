@@ -57,6 +57,9 @@ orders = json_stream.select(
     from_json(col("json_value"), order_schema).alias("order")
 ).select("order.*")
 
+# Remove duplicate orders based on order_id
+orders = orders.dropDuplicates(["order_id"])
+
 # 5. Keep all parsed orders
 # Data quality validation will happen inside foreachBatch()
 
