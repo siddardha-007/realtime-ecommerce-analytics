@@ -52,7 +52,7 @@ def generate_order(order_number):
         "product_id": product["product_id"],
         "product_name": product["product_name"],
         "category": product["category"],
-        "quantity": random.randint(1, 5),
+        "quantity":-2, #random.randint(1, 5),
         "price": product["price"],
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
