@@ -182,6 +182,7 @@ query = (
     orders.writeStream
     .foreachBatch(write_to_postgres)
     .outputMode("append")
+    .option("checkpointLocation", "/opt/spark-checkpoints/ecommerce")
     .start()
 )
 
