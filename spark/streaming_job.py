@@ -8,6 +8,7 @@ from pyspark.sql.types import (
     TimestampType
 )
 from pyspark.sql.functions import from_json, col, round, when
+import time
 
 spark = (
     SparkSession.builder
@@ -64,6 +65,40 @@ orders = orders.dropDuplicates(["order_id"])
 # Data quality validation will happen inside foreachBatch()
 
 
+def write_with_retry(df, table_name, max_retries=3):
+
+    for attempt in range(1, max_retries + 1):
+
+        try:
+            (
+                df.write
+                .format("jdbc")
+                .option("url", "jdbc:postgresql://postgres:5432/ecommerce")
+                .option("dbtable", table_name)
+                .option("user", "admin")
+                .option("password", "admin")
+                .option("driver", "org.postgresql.Driver")
+                .mode("append")
+                .save()
+            )
+
+            print(f"Successfully wrote data to {table_name}")
+            return True
+
+        except Exception as e:
+
+            print(
+                f"Attempt {attempt}/{max_retries} failed "
+                f"for table {table_name}: {e}"
+            )
+
+            if attempt < max_retries:
+                time.sleep(5)
+
+    print(f"Failed to write data to {table_name} after {max_retries} attempts.")
+    return False
+
+
 # write to postgres
 def write_to_postgres(batch_df, batch_id):
 
@@ -104,16 +139,9 @@ def write_to_postgres(batch_df, batch_id):
 
     # Write valid records
     if not valid_orders.isEmpty():
-        (
-            valid_orders.write
-            .format("jdbc")
-            .option("url", "jdbc:postgresql://postgres:5432/ecommerce")
-            .option("dbtable", "orders")
-            .option("user", "admin")
-            .option("password", "admin")
-            .option("driver", "org.postgresql.Driver")
-            .mode("append")
-            .save()
+        write_with_retry(
+            valid_orders,
+            "orders"
         )
 
     # Add error reason to invalid records
@@ -150,28 +178,22 @@ def write_to_postgres(batch_df, batch_id):
 
     # Write invalid records
     if not invalid_orders.isEmpty():
-        (
-            invalid_orders
-            .select(
-                "order_id",
-                "customer_id",
-                "product_id",
-                "product_name",
-                "category",
-                "quantity",
-                "price",
-                "timestamp",
-                "error_reason"
-            )
-            .write
-            .format("jdbc")
-            .option("url", "jdbc:postgresql://postgres:5432/ecommerce")
-            .option("dbtable", "bad_orders")
-            .option("user", "admin")
-            .option("password", "admin")
-            .option("driver", "org.postgresql.Driver")
-            .mode("append")
-            .save()
+
+        invalid_orders_to_write = invalid_orders.select(
+            "order_id",
+            "customer_id",
+            "product_id",
+            "product_name",
+            "category",
+            "quantity",
+            "price",
+            "timestamp",
+            "error_reason"
+        )
+
+        write_with_retry(
+            invalid_orders_to_write,
+            "bad_orders"
         )
 
     print(f"Batch {batch_id} processed.")
