@@ -65,6 +65,33 @@ orders = orders.dropDuplicates(["order_id"])
 # Data quality validation will happen inside foreachBatch()
 
 
+# Calculate real-time metrics
+def calculate_realtime_metrics(batch_df, batch_id):
+
+    if batch_df.isEmpty():
+        return
+
+    total_orders = batch_df.count()
+
+    total_revenue = (
+        batch_df
+        .withColumn(
+            "total_amount",
+            round(col("quantity") * col("price"), 2)
+        )
+        .agg({"total_amount": "sum"})
+        .collect()[0][0]
+    )
+
+    print("====================================")
+    print(f"Batch ID       : {batch_id}")
+    print(f"Total Orders   : {total_orders}")
+    print(f"Total Revenue  : {total_revenue}")
+    print("====================================")
+
+
+
+#error handling and retry mechanism for writing to Postgres
 def write_with_retry(df, table_name, max_retries=3):
 
     for attempt in range(1, max_retries + 1):
@@ -195,6 +222,10 @@ def write_to_postgres(batch_df, batch_id):
             invalid_orders_to_write,
             "bad_orders"
         )
+
+    
+    # Calculate real-time metrics
+    calculate_realtime_metrics(batch_df, batch_id)
 
     print(f"Batch {batch_id} processed.")
 
