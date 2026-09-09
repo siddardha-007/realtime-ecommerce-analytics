@@ -90,6 +90,32 @@ def calculate_realtime_metrics(batch_df, batch_id):
     print("====================================")
 
 
+# Calculate top 5 products by revenue
+def calculate_top_products(batch_df, batch_id):
+
+    if batch_df.isEmpty():
+        return
+
+    top_products = (
+        batch_df
+        .withColumn(
+            "total_amount",
+            round(col("quantity") * col("price"), 2)
+        )
+        .groupBy("product_id", "product_name")
+        .agg(
+            {"total_amount": "sum"}
+        )
+        .withColumnRenamed("sum(total_amount)", "revenue")
+        .orderBy(col("revenue").desc())
+        .limit(5)
+    )
+
+    print("====================================")
+    print(f"Top Products - Batch {batch_id}")
+    print("====================================")
+
+    top_products.show(truncate=False)
 
 #error handling and retry mechanism for writing to Postgres
 def write_with_retry(df, table_name, max_retries=3):
@@ -226,6 +252,9 @@ def write_to_postgres(batch_df, batch_id):
     
     # Calculate real-time metrics
     calculate_realtime_metrics(batch_df, batch_id)
+
+    # Calculate top products
+    calculate_top_products(batch_df, batch_id)
 
     print(f"Batch {batch_id} processed.")
 
