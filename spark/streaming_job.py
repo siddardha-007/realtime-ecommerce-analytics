@@ -7,7 +7,7 @@ from pyspark.sql.types import (
     DoubleType,
     TimestampType
 )
-from pyspark.sql.functions import from_json, col, round, when
+from pyspark.sql.functions import from_json, col, round, when, window, sum
 import time
 
 spark = (
@@ -60,6 +60,60 @@ orders = json_stream.select(
 
 # Remove duplicate orders based on order_id
 orders = orders.dropDuplicates(["order_id"])
+
+valid_orders = orders.filter(
+    col("order_id").isNotNull() &
+    col("customer_id").isNotNull() &
+    col("product_id").isNotNull() &
+    col("quantity").isNotNull() &
+    (col("quantity") > 0) &
+    col("price").isNotNull() &
+    (col("price") > 0) &
+    col("timestamp").isNotNull()
+)
+
+
+windowed_revenue = (
+    valid_orders
+    .withWatermark("timestamp", "10 minutes")
+    .groupBy(
+        window(col("timestamp"), "30 seconds")
+    )
+    .agg(
+        sum(
+            round(col("quantity") * col("price"), 2)
+        ).alias("revenue")
+    )
+    .select(
+        col("window.start").alias("window_start"),
+        col("window.end").alias("window_end"),
+        col("revenue")
+    )
+)
+
+def write_revenue_trend(batch_df, batch_id):
+
+    if batch_df.isEmpty():
+        return
+
+    print("====================================")
+    print(f"Revenue Trend - Batch {batch_id}")
+    print("====================================")
+
+    batch_df.orderBy("window_start").show(truncate=False)
+
+    (
+        batch_df.write
+        .format("jdbc")
+        .option("url", "jdbc:postgresql://postgres:5432/ecommerce")
+        .option("dbtable", "revenue_trend")
+        .option("user", "admin")
+        .option("password", "admin")
+        .option("driver", "org.postgresql.Driver")
+        .mode("append")
+        .save()
+    )
+
 
 # 5. Keep all parsed orders
 # Data quality validation will happen inside foreachBatch()
@@ -116,6 +170,34 @@ def calculate_top_products(batch_df, batch_id):
     print("====================================")
 
     top_products.show(truncate=False)
+
+# Calculate top 5 customers by revenue
+def calculate_top_customers(batch_df, batch_id):
+
+    if batch_df.isEmpty():
+        return
+
+    top_customers = (
+        batch_df
+        .withColumn(
+            "total_amount",
+            round(col("quantity") * col("price"), 2)
+        )
+        .groupBy("customer_id")
+        .agg(
+            {"total_amount": "sum"}
+        )
+        .withColumnRenamed("sum(total_amount)", "revenue")
+        .orderBy(col("revenue").desc())
+        .limit(5)
+    )
+
+    print("====================================")
+    print(f"Top Customers - Batch {batch_id}")
+    print("====================================")
+
+    top_customers.show(truncate=False)
+
 
 #error handling and retry mechanism for writing to Postgres
 def write_with_retry(df, table_name, max_retries=3):
@@ -256,7 +338,11 @@ def write_to_postgres(batch_df, batch_id):
     # Calculate top products
     calculate_top_products(batch_df, batch_id)
 
+    # Calculate top customers
+    calculate_top_customers(batch_df, batch_id)
+
     print(f"Batch {batch_id} processed.")
+
 
 
 # 7. Start streaming query
@@ -269,4 +355,19 @@ query = (
 )
 
 
+# 8. Write revenue trend to Postgres
+
+# revenue_query = (
+#     windowed_revenue.writeStream
+#     .outputMode("update")
+#     .foreachBatch(write_revenue_trend)
+#     .option(
+#         "checkpointLocation",
+#         "/opt/spark-checkpoints/revenue-trend"
+#     )
+#     .start()
+# )
+
+
 query.awaitTermination()
+# revenue_query.awaitTermination()
