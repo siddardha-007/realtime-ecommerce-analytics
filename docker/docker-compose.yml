@@ -27,7 +27,7 @@ services:
     image: postgres:17
     container_name: ecommerce-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: ecommerce
       POSTGRES_USER: admin
@@ -52,7 +52,7 @@ services:
       --master local[*]
       --conf spark.jars.ivy=/tmp
       --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0,org.postgresql:postgresql:42.7.8
-      /opt/spark-apps/streaming_job.pydocker exec -it ecommerce-postgres psql -U admin -d ecommerce
+      /opt/spark-apps/streaming_job.py
       
 
 volumes:
